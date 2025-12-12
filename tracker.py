@@ -24,15 +24,17 @@ poll_interval_seconds = 0.5
 update_interval_seconds = 1.0
 
 active_seconds_today = 0.0
+max_idle_seconds_today = 0.0
 last_print = 0.0
 start_monotonic = time.monotonic()
 current_day = date.today()
 
 def fmt(s):
+    # Formázza a másodperceket ÓÓ:PP:MM formátumra
     s = int(s)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
-print(f"Active time measurement has started... (idle threshold: {idle_threshold_seconds} mp)")
+print(f"Active time measurement has started... (idle threshold: {idle_threshold_seconds}s)")
 print("Exit: Ctrl+C")
 
 while True:
@@ -40,17 +42,35 @@ while True:
     if date.today() != current_day:
         current_day = date.today()
         active_seconds_today = 0.0
+        max_idle_seconds_today = 0.0
         start_monotonic = time.monotonic()
         last_print = 0.0
+
     idle_sec = get_idle_ms() / 1000.0
+    
+    if idle_sec > max_idle_seconds_today:
+        max_idle_seconds_today = idle_sec
+        
     now_m = time.monotonic()
     delta = now_m - start_monotonic
     start_monotonic = now_m
+    
     if idle_sec < idle_threshold_seconds:
         active_seconds_today += delta
+    
     last_print += delta
+    
     if last_print >= update_interval_seconds:
         last_print = 0.0
-        line = f"[{now.strftime('%H:%M:%S')}] Daily active time: {fmt(active_seconds_today)}  (idle: {int(idle_sec)}s) "
+        
+        max_idle_formatted = fmt(max_idle_seconds_today) 
+        
+        line = (
+            f"[{now.strftime('%H:%M:%S')}] "
+            f"Daily active time: {fmt(active_seconds_today)}  "
+            f"(idle: {int(idle_sec):d}s, "
+            f"max idle: {max_idle_formatted}) "
+        )
         print(line, end="\r", flush=True)
+    
     time.sleep(poll_interval_seconds)
