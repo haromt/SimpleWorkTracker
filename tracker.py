@@ -28,9 +28,9 @@ max_idle_seconds_today = 0.0
 last_print = 0.0
 start_monotonic = time.monotonic()
 current_day = date.today()
+active_today = True
 
 def fmt(s):
-    # Formázza a másodperceket ÓÓ:PP:MM formátumra
     s = int(s)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
@@ -39,16 +39,17 @@ print("Exit: Ctrl+C")
 
 while True:
     now = datetime.now()
+    
     if date.today() != current_day:
         current_day = date.today()
         active_seconds_today = 0.0
-        max_idle_seconds_today = 0.0
+        active_today = False
         start_monotonic = time.monotonic()
         last_print = 0.0
 
     idle_sec = get_idle_ms() / 1000.0
     
-    if idle_sec > max_idle_seconds_today:
+    if active_today and idle_sec > max_idle_seconds_today:
         max_idle_seconds_today = idle_sec
         
     now_m = time.monotonic()
@@ -57,6 +58,10 @@ while True:
     
     if idle_sec < idle_threshold_seconds:
         active_seconds_today += delta
+        
+        if not active_today:
+            active_today = True
+            max_idle_seconds_today = 0.0
     
     last_print += delta
     
