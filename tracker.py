@@ -34,13 +34,21 @@ def fmt(s):
     s = int(s)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
-print(f"Active time measurement has started... (idle threshold: {idle_threshold_seconds}s)")
+print(f"💻 time measurement has started... (idle threshold: {idle_threshold_seconds}s)")
 print("Exit: Ctrl+C")
 
 while True:
     now = datetime.now()
     
     if date.today() != current_day:
+        
+        # DAILY SUMMARY OUTPUT
+        print("\n" + "="*50)
+        print(f"[{current_day.strftime('%Y-%m-%d %A')}] Daily Summary:")
+        print(f"  Total 💻 Time: {fmt(active_seconds_today)}")
+        print(f"  Max Idle Time: {fmt(max_idle_seconds_today)}")
+        print("="*50 + "\n")
+        
         current_day = date.today()
         active_seconds_today = 0.0
         active_today = False
@@ -72,7 +80,7 @@ while True:
         
         line = (
             f"[{now.strftime('%H:%M:%S')}] "
-            f"Daily active time: {fmt(active_seconds_today)}  "
+            f"Daily 💻 time: {fmt(active_seconds_today)}  "
             f"(idle: {int(idle_sec):d}s, "
             f"max idle: {max_idle_formatted}) "
         )
