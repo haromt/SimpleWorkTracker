@@ -35,9 +35,12 @@ WORKDAY_START_MINUTE = 0            ; Start of the workday
 WORKDAY_END_HOUR = 16
 WORKDAY_END_MINUTE = 45             ; End of the workday
 ```
-🏃 Usage
-Ensure you have set up the tracker_config.ini file with your preferred settings.Run the application from your terminal:Bashpython tracker.py
+##🏃 Usage
+Ensure you have set up the tracker_config.ini file with your preferred settings.Run the application from your
+terminal:Bashpython tracker.py
 
-The program will start logging your activity and display real-time progress.Console OutputThe console output provides continuous, real-time feedback:[HH:MM:SS] Daily 💻: HH:MM:SS [██████████░░░░░░░░░░] 50% 🙂  (idle: 1s, max idle: 00:15:00, sum idle: 00:30:00) 
+The program will start logging your activity and display real-time progress.
+
+##Console Output
+The console output provides continuous, real-time feedback:[HH:MM:SS] Daily 💻: HH:MM:SS [██████████░░░░░░░░░░] 50% 🙂  (idle: 1s, max idle: 00:15:00, sum idle: 00:30:00) 
 FieldDescription[HH:MM:SS]Total Elapsed Time since the first monitoring start today (cumulative across sessions).Daily 💻: HH:MM:SSTotal Active Time accumulated today.[Progress Bar]Visual progress towards the ACTIVE_TIME_TARGET.Mood EmojiQuick visual feedback based on the progress ratio.idle:Current time since the last mouse/keyboard input.max idle:Maximum single idle period detected today.sum idle:Total accumulated idle time during workday hours.🛑 Stopping the TrackerPress Ctrl+C (Keyboard Interrupt) to stop the tracker gracefully. The program executes a final save of the current day's progress before exiting.
-📝 Data StructureThe tracker_data.json file stores daily data under the date as the key (YYYY-MM-DD). All time metrics are stored in seconds and in a formatted string for readability:
