@@ -5,29 +5,31 @@ import configparser
 import sys
 import signal
 
-def save_on_exit(signum=None, frame=None):
-    """Mentést végez a program leállásakor."""
-    print("\n--- Program leállítása kezdeményezve. Adatok mentése... ---")
-    
-    # A globális változók használata szükséges a mentéshez
-    global active_seconds_today, max_idle_seconds_today, sum_idle_seconds_today, current_day
+def fmt(s):
+    s = int(s)
+    return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
+def save_on_exit(signum=None, frame=None):
+    print("\n--- Program leállítása kezdeményezve. Adatok mentése... ---")
+    global active_seconds_today, max_idle_seconds_today, sum_idle_seconds_today, current_day, total_elapsed_seconds_at_start, session_start_monotonic
+
+    now_m = time.monotonic()
+    total_elapsed_seconds = total_elapsed_seconds_at_start + (now_m - session_start_monotonic)
+    
     day_str = current_day.strftime('%Y-%m-%d')
     
-    # Mentés néma üzemmódban (silent=True)
     save_daily_data(
         day_str,
         active_seconds_today,
         max_idle_seconds_today,
         sum_idle_seconds_today,
+        total_elapsed_seconds,
         silent=True
     )
     print("--- Adatok sikeresen mentve. Kilépés. ---")
     sys.exit(0)
 
-# SIGINT (Ctrl+C) jel regisztrálása
 signal.signal(signal.SIGINT, save_on_exit)
-
 
 # ===================== CONFIGURATION LOADING =====================
 
@@ -96,10 +98,6 @@ MOOD_LEVELS = [
 
 # ===================== UTILS =====================
 
-def fmt(s):
-    s = int(s)
-    return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
-
 def progress_bar(current, total, width=PROGRESS_BAR_WIDTH):
     ratio = current / total
     filled = int(min(ratio, 1.0) * width)
@@ -127,7 +125,7 @@ def load_data():
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
 
-def save_daily_data(day_str, active_time, max_idle_time, sum_idle_time, silent=False):
+def save_daily_data(day_str, active_time, max_idle_time, sum_idle_time, total_elapsed_time, silent=False):
     data = load_data()
     data[day_str] = {
         "active_seconds": active_time,
@@ -136,6 +134,8 @@ def save_daily_data(day_str, active_time, max_idle_time, sum_idle_time, silent=F
         "max_idle_time_formatted": fmt(max_idle_time),
         "sum_idle_seconds": sum_idle_time,
         "sum_idle_time_formatted": fmt(sum_idle_time),
+        "total_elapsed_seconds": total_elapsed_time,
+        "total_elapsed_time_formatted": fmt(total_elapsed_time),
     }
     try:
         with open(DATA_FILE, 'w') as f:
@@ -145,24 +145,47 @@ def save_daily_data(day_str, active_time, max_idle_time, sum_idle_time, silent=F
     except Exception as e:
         print(f"\n  Hiba a JSON fájl mentésekor: {e}")
 
-# ===================== STATE =====================
+def load_initial_data(today_date):
+    data = load_data()
+    today_str = today_date.strftime('%Y-%m-%d')
+    
+    if today_str in data:
+        today_data = data[today_str]
+        
+        loaded_active = today_data.get("active_seconds", 0.0)
+        loaded_max_idle = today_data.get("max_idle_seconds", 0.0)
+        loaded_sum_idle = today_data.get("sum_idle_seconds", 0.0)
+        loaded_total_elapsed = today_data.get("total_elapsed_seconds", 0.0)
+        
+        print(f"Adat betöltve {today_str} napra. Folytatás...")
+        print(f"  Aktív idő: {fmt(loaded_active)}")
+        
+        return loaded_active, loaded_max_idle, loaded_sum_idle, loaded_total_elapsed
+    
+    return 0.0, 0.0, 0.0, 0.0
 
-active_seconds_today = 0.0
-max_idle_seconds_today = 0.0
-sum_idle_seconds_today = 0.0
-
-last_print = 0.0
-start_monotonic = time.monotonic()
-last_save_time = time.monotonic() 
+# ===================== STATE INITIALIZATION =====================
 
 current_day = date.today()
-active_today = True
+(active_seconds_today, 
+ max_idle_seconds_today, 
+ sum_idle_seconds_today,
+ total_elapsed_seconds_at_start) = load_initial_data(current_day)
+
+active_today = active_seconds_today > 0.0
+
+last_print = 0.0
+session_start_monotonic = time.monotonic() 
+last_save_time = time.monotonic() 
+
+start_monotonic = time.monotonic()
 
 # ===================== INITIAL PRINTS =====================
 
+print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"working hours measurement has started... (idle threshold: {int(idle_threshold_seconds)}s)")
-print(f"⏰ Working hours: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')}")
-print(f"📊 Target: {fmt(ACTIVE_TIME_TARGET)}")
+print(f"⏰ Törzsidő: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')}")
+print(f"📊 Progress Bar 100% Target: {fmt(ACTIVE_TIME_TARGET)}")
 print(f"💾 Data will be saved every {SAVE_INTERVAL_SECONDS // 60} minutes.")
 print("Exit: Ctrl+C")
 
@@ -172,6 +195,8 @@ try:
     while True:
         now = datetime.now()
         now_m = time.monotonic()
+
+        total_elapsed_seconds = total_elapsed_seconds_at_start + (now_m - session_start_monotonic)
 
         # --------- DAY CHANGE (SAVE & RESET) ---------
         if date.today() != current_day:
@@ -189,6 +214,7 @@ try:
                 active_seconds_today,
                 max_idle_seconds_today,
                 sum_idle_seconds_today,
+                total_elapsed_seconds,
                 silent=False 
             )
 
@@ -196,7 +222,9 @@ try:
             active_seconds_today = 0.0
             max_idle_seconds_today = 0.0
             sum_idle_seconds_today = 0.0
+            total_elapsed_seconds_at_start = 0.0
             active_today = False
+            session_start_monotonic = now_m 
             start_monotonic = now_m
             last_print = 0.0
             last_save_time = now_m 
@@ -229,11 +257,12 @@ try:
                 active_seconds_today,
                 max_idle_seconds_today,
                 sum_idle_seconds_today,
+                total_elapsed_seconds,
                 silent=True
             )
             last_save_time = now_m
             
-            print(f"[{now.strftime('%H:%M:%S')}] Auto-Save OK.", end="\r", flush=True)
+            print(f"[{fmt(total_elapsed_seconds)}] Auto-Save OK.", end="\r", flush=True)
 
 
         # --------- PRINT (OVERWRITTEN LINE) ---------
@@ -250,8 +279,10 @@ try:
                 ACTIVE_TIME_TARGET
             )
 
+            elapsed_time_formatted = fmt(total_elapsed_seconds)
+
             line = (
-                f"[{now.strftime('%H:%M:%S')}] "
+                f"[{elapsed_time_formatted}] "
                 f"Daily 💻: {fmt(active_seconds_today)} "
                 f"{active_progress} {mood}  "
                 f"(idle: {int(idle_sec)}s, "
@@ -264,6 +295,4 @@ try:
         time.sleep(poll_interval_seconds)
 
 except KeyboardInterrupt:
-    # A KeyboardInterrupt blokk csak biztosíték, a signal handler fut le először
-    # de Windows alatt a signal néha problémás, így ez a blokk kezeli a Ctrl+C-t
     save_on_exit()
