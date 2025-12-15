@@ -10,7 +10,7 @@ def fmt(s):
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
 def save_on_exit(signum=None, frame=None):
-    print("\n--- Program leállítása kezdeményezve. Adatok mentése... ---")
+    print("\n--- Program termination initiated. Saving data... ---")
     global active_seconds_today, max_idle_seconds_today, sum_idle_seconds_today, current_day, total_elapsed_seconds_at_start, session_start_monotonic
 
     now_m = time.monotonic()
@@ -26,7 +26,7 @@ def save_on_exit(signum=None, frame=None):
         total_elapsed_seconds,
         silent=True
     )
-    print("--- Adatok sikeresen mentve. Kilépés. ---")
+    print("--- Data successfully saved. Exiting. ---")
     sys.exit(0)
 
 signal.signal(signal.SIGINT, save_on_exit)
@@ -58,10 +58,10 @@ try:
     WORKDAY_END   = dtime(end_h, end_m)
 
 except KeyError as e:
-    print(f"HIBA: Hiányzó kulcs a config fájlban: {e}. Ellenőrizd a 'tracker_config.ini' fájlt!")
+    print(f"ERROR: Missing key in config file: {e}. Check 'tracker_config.ini' file!")
     sys.exit(1)
 except Exception as e:
-    print(f"HIBA a config fájl beolvasásakor: {e}")
+    print(f"ERROR while reading config file: {e}")
     sys.exit(1)
 
 # ===================== WINDOWS IDLE DETECTION =====================
@@ -141,9 +141,9 @@ def save_daily_data(day_str, active_time, max_idle_time, sum_idle_time, total_el
         with open(DATA_FILE, 'w') as f:
             json.dump(data, f, indent=4)
         if not silent:
-            print(f"\n  Adatok mentve a '{DATA_FILE}' fájlba.")
+            print(f"\n  Data saved to '{DATA_FILE}'.")
     except Exception as e:
-        print(f"\n  Hiba a JSON fájl mentésekor: {e}")
+        print(f"\n  Error saving JSON file: {e}")
 
 def load_initial_data(today_date):
     data = load_data()
@@ -157,8 +157,8 @@ def load_initial_data(today_date):
         loaded_sum_idle = today_data.get("sum_idle_seconds", 0.0)
         loaded_total_elapsed = today_data.get("total_elapsed_seconds", 0.0)
         
-        print(f"Adat betöltve {today_str} napra. Folytatás...")
-        print(f"  Aktív idő: {fmt(loaded_active)}")
+        print(f"Data loaded for {today_str}. Continuing...")
+        print(f"  Active time: {fmt(loaded_active)}")
         
         return loaded_active, loaded_max_idle, loaded_sum_idle, loaded_total_elapsed
     
@@ -184,7 +184,7 @@ start_monotonic = time.monotonic()
 
 print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"working hours measurement has started... (idle threshold: {int(idle_threshold_seconds)}s)")
-print(f"⏰ Törzsidő: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')}")
+print(f"⏰ Workday Core Time: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')}")
 print(f"📊 Progress Bar 100% Target: {fmt(ACTIVE_TIME_TARGET)}")
 print(f"💾 Data will be saved every {SAVE_INTERVAL_SECONDS // 60} minutes.")
 print("Exit: Ctrl+C")
