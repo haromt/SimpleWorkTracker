@@ -231,8 +231,10 @@ try:
 
         # --------- IDLE CHECK & TIME CALCULATION ---------
         idle_sec = get_idle_ms() / 1000.0
+        
+        is_in_worktime = in_worktime(now) # Ellenőrizzük, hogy törzsidő van-e
 
-        if active_today and idle_sec > max_idle_seconds_today:
+        if active_today and is_in_worktime and idle_sec > max_idle_seconds_today:
             max_idle_seconds_today = idle_sec
 
         delta = now_m - start_monotonic
@@ -242,9 +244,11 @@ try:
             active_seconds_today += delta
             if not active_today:
                 active_today = True
-                max_idle_seconds_today = 0.0
+                # A max idle időt CSAK akkor reseteljük, ha az aktivitás törzsidőben kezdődik/folytatódik
+                if is_in_worktime:
+                    max_idle_seconds_today = 0.0
         else:
-            if in_worktime(now):
+            if is_in_worktime:
                 sum_idle_seconds_today += delta
 
         last_print += delta
