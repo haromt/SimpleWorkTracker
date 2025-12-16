@@ -107,7 +107,7 @@ def progress_bar(current, total,  width=PROGRESS_BAR_WIDTH):
     elif ratio < 1.0:
         color = GREEN_COLOR
     else:
-        color = BLUE
+        color = BLUE_COLOR
 
     filled = int(min(ratio, 1.0) * width)
     bar = "█" * filled + "░" * (width - filled)
@@ -291,3 +291,4 @@ try:
 
 except KeyboardInterrupt:
     save_on_exit()
+
