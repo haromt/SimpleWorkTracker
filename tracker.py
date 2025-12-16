@@ -31,8 +31,6 @@ def save_on_exit(signum=None, frame=None):
 
 signal.signal(signal.SIGINT, save_on_exit)
 
-# ===================== CONFIGURATION LOADING =====================
-
 config = configparser.ConfigParser()
 config.read('tracker_config.ini')
 
@@ -64,8 +62,6 @@ except Exception as e:
     print(f"ERROR while reading config file: {e}")
     sys.exit(1)
 
-# ===================== WINDOWS IDLE DETECTION =====================
-
 class LASTINPUTINFO(ctypes.Structure):
     _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
 
@@ -82,8 +78,6 @@ def get_idle_ms():
         idle += 2**32
     return idle
 
-# ===================== MOOD SCALE (10 STATES) =====================
-
 MOOD_LEVELS = [
     (0.10, "😢"),
     (0.20, "😞"),
@@ -95,8 +89,6 @@ MOOD_LEVELS = [
     (0.85, "😁"),
     (1.00, "🤩"),
 ]
-
-# ===================== UTILS =====================
 
 def progress_bar(current, total, width=PROGRESS_BAR_WIDTH):
     ratio = current / total
@@ -115,8 +107,6 @@ def mood_smiley(current, target):
 def in_worktime(now: datetime):
     t = now.time()
     return WORKDAY_START <= t <= WORKDAY_END
-
-# ===================== JSON HANDLING =====================
 
 def load_data():
     try:
@@ -164,8 +154,6 @@ def load_initial_data(today_date):
     
     return 0.0, 0.0, 0.0, 0.0
 
-# ===================== STATE INITIALIZATION =====================
-
 current_day = date.today()
 (active_seconds_today, 
  max_idle_seconds_today, 
@@ -180,16 +168,12 @@ last_save_time = time.monotonic()
 
 start_monotonic = time.monotonic()
 
-# ===================== INITIAL PRINTS =====================
-
 print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"working hours measurement has started... (idle threshold: {int(idle_threshold_seconds)}s)")
-print(f"⏰ Workday Core Time: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')}")
+print(f"\033[43m\033[30m⏰ Workday Core Time: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')} \033[0m")
 print(f"📊 Progress Bar 100% Target: {fmt(ACTIVE_TIME_TARGET)}")
 print(f"💾 Data will be saved every {SAVE_INTERVAL_SECONDS // 60} minutes.")
 print("Exit: Ctrl+C")
-
-# ===================== MAIN LOOP =====================
 
 try:
     while True:
@@ -198,16 +182,10 @@ try:
 
         total_elapsed_seconds = total_elapsed_seconds_at_start + (now_m - session_start_monotonic)
 
-        # --------- DAY CHANGE (SAVE & RESET) ---------
         if date.today() != current_day:
             yesterday_str = current_day.strftime('%Y-%m-%d')
 
             print("\n" + "="*60)
-            print(f"[{yesterday_str}] Daily Summary:")
-            print(f"  Total 💻 Time: {fmt(active_seconds_today)}")
-            print(f"  Max Idle Time: {fmt(max_idle_seconds_today)}")
-            print(f"  Sum Idle Time (worktime): {fmt(sum_idle_seconds_today)}")
-            print("="*60 + "\n")
 
             save_daily_data(
                 yesterday_str,
@@ -229,10 +207,9 @@ try:
             last_print = 0.0
             last_save_time = now_m 
 
-        # --------- IDLE CHECK & TIME CALCULATION ---------
         idle_sec = get_idle_ms() / 1000.0
         
-        is_in_worktime = in_worktime(now) # Ellenőrizzük, hogy törzsidő van-e
+        is_in_worktime = in_worktime(now)
 
         if active_today and is_in_worktime and idle_sec > max_idle_seconds_today:
             max_idle_seconds_today = idle_sec
@@ -244,7 +221,6 @@ try:
             active_seconds_today += delta
             if not active_today:
                 active_today = True
-                # A max idle időt CSAK akkor reseteljük, ha az aktivitás törzsidőben kezdődik/folytatódik
                 if is_in_worktime:
                     max_idle_seconds_today = 0.0
         else:
@@ -253,7 +229,6 @@ try:
 
         last_print += delta
 
-        # --------- INTERVAL SAVE ---------
         if now_m - last_save_time >= SAVE_INTERVAL_SECONDS:
             
             save_daily_data(
@@ -269,7 +244,6 @@ try:
             print(f"[{fmt(total_elapsed_seconds)}] Auto-Save OK.", end="\r", flush=True)
 
 
-        # --------- PRINT (OVERWRITTEN LINE) ---------
         if last_print >= update_interval_seconds:
             last_print = 0.0
 
