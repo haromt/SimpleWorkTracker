@@ -90,12 +90,29 @@ MOOD_LEVELS = [
     (1.00, "🤩"),
 ]
 
-def progress_bar(current, total, width=PROGRESS_BAR_WIDTH):
-    ratio = current / total
+RED_COLOR    = "\033[91m"
+YELLOW_COLOR = "\033[93m"
+GREEN_COLOR  = "\033[92m"
+BLUE_COLOR 	 = "\033[34m"
+RESET_COLOR  = "\033[0m"
+
+def progress_bar(current, total,  width=PROGRESS_BAR_WIDTH):
+    ratio = current / total if total else 0
+    percent = int(ratio * 100)
+
+    if ratio < 0.5:
+        color = RED_COLOR
+    elif ratio < 0.8:
+        color = YELLOW_COLOR
+    elif ratio < 1.0:
+        color = GREEN_COLOR
+    else:
+        color = BLUE
+
     filled = int(min(ratio, 1.0) * width)
     bar = "█" * filled + "░" * (width - filled)
-    percent = int(ratio * 100)
-    return f"[{bar}] {percent:3d}%"
+
+    return f"{color}[{bar}] {percent:3d}%{RESET_COLOR}"
 
 def mood_smiley(current, target):
     ratio = current / target
