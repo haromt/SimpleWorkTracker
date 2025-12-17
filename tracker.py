@@ -1,23 +1,27 @@
+
 import ctypes, time
 import json
-from datetime import datetime, date, time as dtime
+from datetime import datetime, date, time as dtime, timedelta
 import configparser
 import sys
 import signal
+import msvcrt
 
 def fmt(s):
     s = int(s)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
 
+def fmt_signed(s):
+    sign = "+" if s >= 0 else "-"
+    s = abs(int(s))
+    return f"{sign}{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
+
 def save_on_exit(signum=None, frame=None):
     print("\n--- Program termination initiated. Saving data... ---")
     global active_seconds_today, max_idle_seconds_today, sum_idle_seconds_today, current_day, total_elapsed_seconds_at_start, session_start_monotonic
-
     now_m = time.monotonic()
     total_elapsed_seconds = total_elapsed_seconds_at_start + (now_m - session_start_monotonic)
-    
     day_str = current_day.strftime('%Y-%m-%d')
-    
     save_daily_data(
         day_str,
         active_seconds_today,
@@ -33,28 +37,22 @@ signal.signal(signal.SIGINT, save_on_exit)
 
 config = configparser.ConfigParser()
 config.read('tracker_config.ini')
-
 try:
     DATA_FILE = config['TRACKER']['DATA_FILE']
     idle_threshold_seconds = config.getfloat('TRACKER', 'IDLE_THRESHOLD_SECONDS')
     poll_interval_seconds = config.getfloat('TRACKER', 'POLL_INTERVAL_SECONDS')
     update_interval_seconds = config.getfloat('TRACKER', 'UPDATE_INTERVAL_SECONDS')
     SAVE_INTERVAL_SECONDS = config.getint('TRACKER', 'SAVE_INTERVAL_SECONDS')
-    
     target_h = config.getint('TRACKER', 'ACTIVE_TIME_TARGET_HOURS')
     target_m = config.getint('TRACKER', 'ACTIVE_TIME_TARGET_MINUTES')
     ACTIVE_TIME_TARGET = target_h * 3600 + target_m * 60
-    
     PROGRESS_BAR_WIDTH = config.getint('TRACKER', 'PROGRESS_BAR_WIDTH')
-    
     start_h = config.getint('WORKTIME', 'WORKDAY_START_HOUR')
     start_m = config.getint('WORKTIME', 'WORKDAY_START_MINUTE')
     end_h = config.getint('WORKTIME', 'WORKDAY_END_HOUR')
     end_m = config.getint('WORKTIME', 'WORKDAY_END_MINUTE')
-    
     WORKDAY_START = dtime(start_h, start_m)
-    WORKDAY_END   = dtime(end_h, end_m)
-
+    WORKDAY_END = dtime(end_h, end_m)
 except KeyError as e:
     print(f"ERROR: Missing key in config file: {e}. Check 'tracker_config.ini' file!")
     sys.exit(1)
@@ -90,16 +88,15 @@ MOOD_LEVELS = [
     (1.00, "🤩"),
 ]
 
-RED_COLOR    = "\033[91m"
-YELLOW_COLOR = "\033[93m"
-GREEN_COLOR  = "\033[92m"
-BLUE_COLOR 	 = "\033[34m"
-RESET_COLOR  = "\033[0m"
+RED_COLOR   = "\033[91m"
+YELLOW_COLOR= "\033[93m"
+GREEN_COLOR = "\033[92m"
+BLUE_COLOR  = "\033[34m"
+RESET_COLOR = "\033[0m"
 
-def progress_bar(current, total,  width=PROGRESS_BAR_WIDTH):
+def progress_bar(current, total, width=PROGRESS_BAR_WIDTH):
     ratio = current / total if total else 0
     percent = int(ratio * 100)
-
     if ratio < 0.5:
         color = RED_COLOR
     elif ratio < 0.8:
@@ -108,14 +105,12 @@ def progress_bar(current, total,  width=PROGRESS_BAR_WIDTH):
         color = GREEN_COLOR
     else:
         color = BLUE_COLOR
-
     filled = int(min(ratio, 1.0) * width)
     bar = "█" * filled + "░" * (width - filled)
-
     return f"{color}[{bar}] {percent:3d}%{RESET_COLOR}"
 
 def mood_smiley(current, target):
-    ratio = current / target
+    ratio = current / target if target else 0
     for level, emoji in MOOD_LEVELS:
         if ratio <= level:
             return emoji
@@ -148,42 +143,38 @@ def save_daily_data(day_str, active_time, max_idle_time, sum_idle_time, total_el
         with open(DATA_FILE, 'w') as f:
             json.dump(data, f, indent=4)
         if not silent:
-            print(f"\n  Data saved to '{DATA_FILE}'.")
+            print(f"\n Data saved to '{DATA_FILE}'.")
     except Exception as e:
-        print(f"\n  Error saving JSON file: {e}")
+        print(f"\n Error saving JSON file: {e}")
 
 def load_initial_data(today_date):
     data = load_data()
     today_str = today_date.strftime('%Y-%m-%d')
-    
     if today_str in data:
         today_data = data[today_str]
-        
         loaded_active = today_data.get("active_seconds", 0.0)
         loaded_max_idle = today_data.get("max_idle_seconds", 0.0)
         loaded_sum_idle = today_data.get("sum_idle_seconds", 0.0)
         loaded_total_elapsed = today_data.get("total_elapsed_seconds", 0.0)
-        
         print(f"Data loaded for {today_str}. Continuing...")
-        print(f"  Active time: {fmt(loaded_active)}")
-        
+        print(f" Active time: {fmt(loaded_active)}")
         return loaded_active, loaded_max_idle, loaded_sum_idle, loaded_total_elapsed
-    
     return 0.0, 0.0, 0.0, 0.0
 
 current_day = date.today()
-(active_seconds_today, 
- max_idle_seconds_today, 
+(active_seconds_today,
+ max_idle_seconds_today,
  sum_idle_seconds_today,
  total_elapsed_seconds_at_start) = load_initial_data(current_day)
 
 active_today = active_seconds_today > 0.0
-
 last_print = 0.0
-session_start_monotonic = time.monotonic() 
-last_save_time = time.monotonic() 
-
+session_start_monotonic = time.monotonic()
+last_save_time = time.monotonic()
 start_monotonic = time.monotonic()
+
+TOGGLE_KEY = b'\x04'  # Ctrl+D (EOT)
+show_delta = False
 
 print(f"Start time: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
 print(f"working hours measurement has started... (idle threshold: {int(idle_threshold_seconds)}s)")
@@ -196,36 +187,31 @@ try:
     while True:
         now = datetime.now()
         now_m = time.monotonic()
-
         total_elapsed_seconds = total_elapsed_seconds_at_start + (now_m - session_start_monotonic)
 
         if date.today() != current_day:
             yesterday_str = current_day.strftime('%Y-%m-%d')
-
             print("\n" + "="*60)
-
             save_daily_data(
                 yesterday_str,
                 active_seconds_today,
                 max_idle_seconds_today,
                 sum_idle_seconds_today,
                 total_elapsed_seconds,
-                silent=False 
+                silent=False
             )
-
             current_day = date.today()
             active_seconds_today = 0.0
             max_idle_seconds_today = 0.0
             sum_idle_seconds_today = 0.0
             total_elapsed_seconds_at_start = 0.0
             active_today = False
-            session_start_monotonic = now_m 
+            session_start_monotonic = now_m
             start_monotonic = now_m
             last_print = 0.0
-            last_save_time = now_m 
+            last_save_time = now_m
 
         idle_sec = get_idle_ms() / 1000.0
-        
         is_in_worktime = in_worktime(now)
 
         if active_today and is_in_worktime and idle_sec > max_idle_seconds_today:
@@ -238,8 +224,8 @@ try:
             active_seconds_today += delta
             if not active_today:
                 active_today = True
-                if is_in_worktime:
-                    max_idle_seconds_today = 0.0
+            if is_in_worktime:
+                max_idle_seconds_today = 0.0
         else:
             if is_in_worktime:
                 sum_idle_seconds_today += delta
@@ -247,7 +233,6 @@ try:
         last_print += delta
 
         if now_m - last_save_time >= SAVE_INTERVAL_SECONDS:
-            
             save_daily_data(
                 current_day.strftime('%Y-%m-%d'),
                 active_seconds_today,
@@ -257,9 +242,7 @@ try:
                 silent=True
             )
             last_save_time = now_m
-            
             print(f"[{fmt(total_elapsed_seconds)}] Auto-Save OK.", end="\r", flush=True)
-
 
         if last_print >= update_interval_seconds:
             last_print = 0.0
@@ -268,27 +251,37 @@ try:
                 active_seconds_today,
                 ACTIVE_TIME_TARGET
             )
-
             mood = mood_smiley(
                 active_seconds_today,
                 ACTIVE_TIME_TARGET
             )
-
             elapsed_time_formatted = fmt(total_elapsed_seconds)
+
+            try:
+                while msvcrt.kbhit():
+                    ch = msvcrt.getch()
+                    if ch.lower() == TOGGLE_KEY:
+                        show_delta = not show_delta
+            except Exception:
+                pass
+
+            if show_delta:
+                delta_sec = int(active_seconds_today - ACTIVE_TIME_TARGET)
+                daily_str = fmt_signed(delta_sec)
+            else:
+                daily_str = fmt(int(active_seconds_today))
 
             line = (
                 f"[{elapsed_time_formatted}] "
-                f"Daily 💻: {fmt(active_seconds_today)} "
-                f"{active_progress} {mood}  "
+                f"Daily 💻: {daily_str} "
+                f"{active_progress} {mood} "
                 f"(idle: {int(idle_sec)}s, "
                 f"max idle: {fmt(max_idle_seconds_today)}, "
                 f"sum idle: {fmt(sum_idle_seconds_today)}) "
             )
-
             print(line, end="\r", flush=True)
 
         time.sleep(poll_interval_seconds)
 
 except KeyboardInterrupt:
     save_on_exit()
-
