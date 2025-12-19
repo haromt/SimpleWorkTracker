@@ -1,3 +1,4 @@
+
 import ctypes, time
 import json
 from datetime import datetime, date, time as dtime, timedelta
@@ -216,6 +217,9 @@ try:
         if active_today and is_in_worktime and idle_sec > max_idle_seconds_today:
             max_idle_seconds_today = idle_sec
 
+        if active_today and is_in_worktime and idle_sec > idle_threshold_seconds:
+            sum_idle_seconds_today += delta
+
         delta = now_m - start_monotonic
         start_monotonic = now_m
 
@@ -223,11 +227,6 @@ try:
             active_seconds_today += delta
             if not active_today:
                 active_today = True
-            if is_in_worktime:
-                max_idle_seconds_today = 0.0
-        else:
-            if is_in_worktime:
-                sum_idle_seconds_today += delta
 
         last_print += delta
 
@@ -284,4 +283,3 @@ try:
 
 except KeyboardInterrupt:
     save_on_exit()
-
