@@ -214,8 +214,8 @@ try:
         idle_sec = get_idle_ms() / 1000.0
         is_in_worktime = in_worktime(now)
 
-        if active_today and is_in_worktime and idle_sec > max_idle_seconds_today:
-            max_idle_seconds_today = idle_sec
+        if active_today and is_in_worktime and idle_sec > max_idle_seconds_today and idle_sec > idle_threshold_seconds:
+            max_idle_seconds_today += idle_sec
 
         if active_today and is_in_worktime and idle_sec > idle_threshold_seconds:
             sum_idle_seconds_today += delta
