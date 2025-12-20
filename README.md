@@ -1,3 +1,13 @@
+
+ _____ _                 _        _    _            _  _____              _
+/  ___(_)               | |      | |  | |          | ||_   _|            | |
+\ `--. _ _ __ ___  _ __ | | ___  | |  | | ___  _ __| | _| |_ __ __ _  ___| | _____ _ __
+ `--. \ | '_ ` _ \| '_ \| |/ _ \ | |/\| |/ _ \| '__| |/ / | '__/ _` |/ __| |/ / _ \ '__|
+/\__/ / | | | | | | |_) | |  __/ \  /\  / (_) | |  |   <| | | | (_| | (__|   <  __/ |
+\____/|_|_| |_| |_| .__/|_|\___|  \/  \/ \___/|_|  |_|\_\_/_|  \__,_|\___|_|\_\___|_|
+                  | |
+                  |_|
+
 🚀 Time/Activity Tracker (Python)
 
 A simple, robust time and activity tracker written in Python, designed to measure active desk time and idle periods based on user input (keyboard and mouse). It tracks progress towards a configurable daily goal and persists data seamlessly.
