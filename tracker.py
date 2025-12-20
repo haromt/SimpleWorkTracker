@@ -7,6 +7,22 @@ import signal
 import msvcrt
 import os
 
+def print_ascii_banner():
+    banner = r"""
+ _____ _                 _        _    _            _  _____              _             
+/  ___(_)               | |      | |  | |          | ||_   _|            | |            
+\ `--. _ _ __ ___  _ __ | | ___  | |  | | ___  _ __| | _| |_ __ __ _  ___| | _____ _ __ 
+ `--. \ | '_ ` _ \| '_ \| |/ _ \ | |/\| |/ _ \| '__| |/ / | '__/ _` |/ __| |/ / _ \ '__|
+/\__/ / | | | | | | |_) | |  __/ \  /\  / (_) | |  |   <| | | | (_| | (__|   <  __/ |   
+\____/|_|_| |_| |_| .__/|_|\___|  \/  \/ \___/|_|  |_|\_\_/_|  \__,_|\___|_|\_\___|_|   
+                  | |                                                                   
+                  |_|                                                                   
+"""
+    print(banner)
+
+print_ascii_banner()
+
+
 def fmt(s):
     s = int(s)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
@@ -168,6 +184,11 @@ def load_initial_data(today_date):
         return loaded_active, loaded_max_idle, loaded_sum_idle, loaded_total_elapsed
     return 0.0, 0.0, 0.0, 0.0
 
+print(f"🚀 Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+print(f"⏱️ Monitoring activity... Idle threshold: {int(idle_threshold_seconds)}s")
+print(f"\033[43m\033[30m🏢 Core Time: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')} \033[0m")
+print(f"📊 100% target: {fmt(ACTIVE_TIME_TARGET)}")
+
 def print_last_5_days():
     data = load_data()
     if not data:
@@ -236,13 +257,6 @@ was_in_core_time = in_worktime(datetime.now())
 
 TOGGLE_KEY = b'\x04'
 show_delta = False
-
-print(f"🚀 Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-print(f"⏱️ Monitoring activity... Idle threshold: {int(idle_threshold_seconds)}s")
-print(f"\033[43m\033[30m🏢 Core Time: {WORKDAY_START.strftime('%H:%M')} - {WORKDAY_END.strftime('%H:%M')} \033[0m")
-print(f"📊 Progress bar 100% target: {fmt(ACTIVE_TIME_TARGET)}")
-print(f"💾 Data will be saved every {SAVE_INTERVAL_SECONDS // 60} minutes.")
-print("🛑 Exit: Ctrl+C")
 
 try:
     while True:
