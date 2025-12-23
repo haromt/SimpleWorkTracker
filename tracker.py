@@ -83,6 +83,7 @@ YEL = "\033[93m"
 GRN = "\033[92m"
 BLU = "\033[34m"
 RST = "\033[0m"
+GRY = "\033[90m"
 
 def progress_bar(current, total, width):
     ratio = current / total if total else 0
@@ -169,7 +170,7 @@ def print_last_5_days_report():
     days = [date.today() - timedelta(days=i) for i in range(0, 5)]
     rows = []
 
-    for d in reversed(days):
+    for d in (days):
         ds = d.strftime("%Y-%m-%d")
         label = f"{ds} {weekday_hu(d)}"
         entry = data.get(ds)
@@ -201,7 +202,10 @@ def print_last_5_days_report():
     print(sep())
     print(row(headers))
     print(sep())
-    for r in rows:
+    for (d, r) in zip(days, rows):
+      if d.weekday() >= 5:
+        print(f"{GRY}{row(r)}{RST}")
+      else:
         print(row(r))
     print(sep())
     print()
