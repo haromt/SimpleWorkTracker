@@ -8,6 +8,11 @@ import os
 import atexit
 import signal
 
+try:
+    import msvcrt
+except ImportError:
+    msvcrt = None
+
 os.system("cls" if os.name == "nt" else "clear")
 
 ERROR_ALREADY_EXISTS = 183
@@ -38,6 +43,13 @@ print_ascii_banner()
 def fmt(s):
     s = int(s)
     return f"{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
+
+def fmt_signed(s):
+    s = int(s)
+    sign = "+" if s >= 0 else "-"
+    s = abs(s)
+    return f"{sign}{s//3600:02d}:{(s%3600)//60:02d}:{s%60:02d}"
+
 
 config = configparser.ConfigParser()
 config.read("tracker_config.ini")
@@ -167,7 +179,7 @@ def restart_program():
 
 def print_last_5_days_report():
     data = load_data()
-    days = [date.today() - timedelta(days=i) for i in range(0, 5)]
+    days = [date.today() - timedelta(days=i) for i in range(1, 6)]
     rows = []
 
     for d in (days):
@@ -230,6 +242,7 @@ last_update = now_m0
 last_save = now_m0
 day_closed = False
 idle_run_seconds = 0.0
+show_active_minus_target = False
 
 def save_and_exit():
     try:
@@ -266,6 +279,11 @@ kernel32.SetConsoleCtrlHandler(console_handler, True)
 while True:
     now = datetime.now()
     now_m = time.monotonic()
+
+    if msvcrt and msvcrt.kbhit():
+        ch = msvcrt.getch()
+        if ch == b"\x04":
+            show_active_minus_target = not show_active_minus_target
 
     if now.date() != current_day and not day_closed:
         day_closed = True
@@ -317,13 +335,16 @@ while True:
 
     if now_m - session_start >= update_interval_seconds:
         elapsed = fmt(now_m - session_start)
+        active_display = fmt(active_seconds)
+        if show_active_minus_target:
+            active_display = fmt_signed(active_seconds - ACTIVE_TIME_TARGET)
         idle_str = f"{int(idle_sec):4d}s"
         max_idle_str = f"{fmt(max_idle_seconds):>8}"
         sum_idle_str = f"{fmt(sum_idle_seconds):>8}"
 
         line = (
             f"⏳ {elapsed}  "
-            f"💻 {fmt(active_seconds):>8}  "
+            f"💻 {active_display:>9}  "
             f"{progress_bar(active_seconds, ACTIVE_TIME_TARGET, PROGRESS_BAR_WIDTH)} "
             f"{progress_smile(active_seconds, ACTIVE_TIME_TARGET)}  "
             f"🕒 idle: {idle_str}  "
