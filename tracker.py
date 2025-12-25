@@ -25,6 +25,8 @@ if not mutex:
 if kernel32.GetLastError() == ERROR_ALREADY_EXISTS:
     sys.exit(0)
 
+def work_status(now):
+    return "🌞" if in_worktime(now) else "🌙"
 def print_ascii_banner():
     banner = r"""
  _____ _                 _        _    _            _  _____              _             
@@ -279,6 +281,7 @@ kernel32.SetConsoleCtrlHandler(console_handler, True)
 while True:
     now = datetime.now()
     now_m = time.monotonic()
+    status = work_status(now)
 
     if msvcrt and msvcrt.kbhit():
         ch = msvcrt.getch()
@@ -311,16 +314,16 @@ while True:
 
     idle_sec = get_idle_ms() / 1000.0
 
-    if in_worktime(now):
-        if idle_sec < idle_threshold_seconds:
-            active_seconds += delta
-            idle_run_seconds = 0.0
-        else:
-            sum_idle_seconds += delta
-            idle_run_seconds += delta
-            if idle_run_seconds > max_idle_seconds:
-                max_idle_seconds = idle_run_seconds
+    if idle_sec < idle_threshold_seconds:
+      active_seconds += delta
+      idle_run_seconds = 0.0
     else:
+     if in_worktime(now):
+        sum_idle_seconds += delta
+        idle_run_seconds += delta
+        if idle_run_seconds > max_idle_seconds:
+            max_idle_seconds = idle_run_seconds
+     else:
         idle_run_seconds = 0.0
 
     if now_m - last_save >= SAVE_INTERVAL_SECONDS:
@@ -342,16 +345,18 @@ while True:
         max_idle_str = f"{fmt(max_idle_seconds):>8}"
         sum_idle_str = f"{fmt(sum_idle_seconds):>8}"
 
-        line = (
-            f"⏳ {elapsed}  "
-            f"💻 {active_display:>9}  "
-            f"{progress_bar(active_seconds, ACTIVE_TIME_TARGET, PROGRESS_BAR_WIDTH)} "
-            f"{progress_smile(active_seconds, ACTIVE_TIME_TARGET)}  "
-            f"🕒 idle: {idle_str}  "
-            f"⬆ max idle: {max_idle_str}  "
-            f"Σ idle: {sum_idle_str}"
-        )
+    line = (
+      f"⏳ {elapsed} "
+	  f"{status} "
+      f"💻 {active_display:>9}  "
+      f"{progress_bar(active_seconds, ACTIVE_TIME_TARGET, PROGRESS_BAR_WIDTH)} "
+      f"{progress_smile(active_seconds, ACTIVE_TIME_TARGET)}  "
+      f"🕒 idle: {idle_str}  "
+      f"⬆ max idle: {max_idle_str}  "
+      f"Σ idle: {sum_idle_str}"
+     )
 
-        print(line, end="\r", flush=True)
+
+    print(line, end="\r", flush=True)
 
     time.sleep(poll_interval_seconds)
