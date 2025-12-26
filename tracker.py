@@ -360,3 +360,4 @@ while True:
     print(line, end="\r", flush=True)
 
     time.sleep(poll_interval_seconds)
+
