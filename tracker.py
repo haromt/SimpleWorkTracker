@@ -265,15 +265,15 @@ class ConsoleReport:
                 te = float(entry.get("total_elapsed_seconds", 0.0) or 0.0)
                 first_ts_str = entry.get("first_active_time")
                 last_ts_str = entry.get("last_active_time")
+                activesecs = entry.get("active_seconds")
                 work_span = "-"
                 if first_ts_str and last_ts_str:
                     try:
                         first_ts = datetime.fromisoformat(first_ts_str)
                         last_ts = datetime.fromisoformat(last_ts_str)
                         if last_ts >= first_ts:
-                            dur = (last_ts - first_ts).total_seconds()
-                            dur_str = fmt(dur)
-                            work_span = f"{first_ts.strftime('%H:%M')}–{last_ts.strftime('%H:%M')} ({dur_str})"
+                            f_activesecs = fmt(activesecs)
+                            work_span = f"{first_ts.strftime('%H:%M')}–{last_ts.strftime('%H:%M')} ({f_activesecs})"
                     except:
                         work_span = "-"
                 rows.append((label, work_span, fmt(mi), fmt(si), fmt(te)))
