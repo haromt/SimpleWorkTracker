@@ -7,6 +7,7 @@ import sys
 import os
 import atexit
 import signal
+import shutil
 
 try:
     import msvcrt
@@ -32,6 +33,20 @@ CTRL_BREAK_EVENT = 1
 CTRL_CLOSE_EVENT = 2
 CTRL_LOGOFF_EVENT = 5
 CTRL_SHUTDOWN_EVENT = 6
+
+RED_AFTER_SECONDS = 45 * 60
+
+
+def enable_vt_mode():
+    if os.name != "nt":
+        return
+    handle = kernel32.GetStdHandle(-11)
+    if handle in (0, -1):
+        return
+    mode = ctypes.c_uint()
+    if kernel32.GetConsoleMode(handle, ctypes.byref(mode)) == 0:
+        return
+    kernel32.SetConsoleMode(handle, mode.value | 0x0004)
 
 
 class SingleInstance:
@@ -309,6 +324,7 @@ class ConsoleReport:
 
 class TrackerApp:
     def __init__(self):
+        enable_vt_mode()
         self.single_instance = SingleInstance()
         self.config = AppConfig()
         self.datastore = DataStore(self.config.data_file)
@@ -324,6 +340,8 @@ class TrackerApp:
         self.last_ui_update = self.now_m0
         self.day_closed = False
         self.show_active_minus_target = False
+        self.streak_start_m = None
+        self.last_streak_display = ""
         self.setup_handlers()
         print_ascii_banner()
         ConsoleReport(self.datastore).print_last_5_days()
@@ -387,6 +405,7 @@ class TrackerApp:
                 self.last_ui_update = now_m
                 self.stats.idle_run_seconds = 0.0
                 self.day_closed = False
+                self.streak_start_m = None
 
     def handle_keyboard(self):
         if msvcrt and msvcrt.kbhit():
@@ -394,14 +413,17 @@ class TrackerApp:
             if ch == b"\x04":
                 self.show_active_minus_target = not self.show_active_minus_target
 
-    def update_stats(self, delta, now):
+    def update_stats(self, delta, now, now_m):
         idle_sec = self.idle_detector.get_idle_seconds()
         is_active = idle_sec < self.config.idle_threshold_seconds
         if is_active:
             self.stats.update_on_active(delta, now)
+            if self.streak_start_m is None:
+                self.streak_start_m = now_m
         else:
             self.stats.update_on_idle(delta, in_worktime(now, self.config))
-        return idle_sec
+            self.streak_start_m = None
+        return idle_sec, is_active
 
     def maybe_save(self, now_m):
         if now_m - self.last_save >= self.config.save_interval_seconds:
@@ -409,7 +431,17 @@ class TrackerApp:
             self.datastore.save_day(self.day_str, self.stats)
             self.last_save = now_m
 
-    def maybe_update_ui(self, now_m, now, idle_sec):
+    def print_streak_top_right(self, streak_seconds):
+        cols = shutil.get_terminal_size(fallback=(120, 30)).columns
+        text = f"🪑{fmt(streak_seconds)}"
+        if streak_seconds >= RED_AFTER_SECONDS:
+            text = f"{RED}{text}{RST}"
+        clean_len = len(f"⏱ {fmt(streak_seconds)}")
+        col = max(1, cols - clean_len + 1)
+        sys.stdout.write(f"\033[s\033[1;{col}H{text}\033[u")
+        sys.stdout.flush()
+
+    def maybe_update_ui(self, now_m, now, idle_sec, is_active):
         if now_m - self.last_ui_update >= self.config.update_interval_seconds:
             status = "🌞" if in_worktime(now, self.config) else "🌙"
             elapsed = fmt(now_m - self.session_start)
@@ -432,6 +464,10 @@ class TrackerApp:
                 f"Σ idle: {sum_idle_str}"
             )
             print(line, end="\r", flush=True)
+            streak_seconds = 0
+            if is_active and self.streak_start_m is not None:
+                streak_seconds = int(max(0.0, now_m - self.streak_start_m))
+            self.print_streak_top_right(streak_seconds)
             self.last_ui_update = now_m
 
     def run(self):
@@ -442,9 +478,9 @@ class TrackerApp:
             self.handle_midnight_rollover(now, now_m)
             delta = now_m - self.last_update
             self.last_update = now_m
-            idle_sec = self.update_stats(delta, now)
+            idle_sec, is_active = self.update_stats(delta, now, now_m)
             self.maybe_save(now_m)
-            self.maybe_update_ui(now_m, now, idle_sec)
+            self.maybe_update_ui(now_m, now, idle_sec, is_active)
             time.sleep(self.config.poll_interval_seconds)
 
 
